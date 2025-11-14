@@ -1,171 +1,182 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AR Mural - Bear Honey Bottle</title>
+  <meta charset="UTF‑8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user‑scalable=no">
+  <title>AR Mural – Bear Honey Bottle</title>
 
-    <!-- Load Three.js first -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-    <!-- MindAR scripts -->
-    <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/dist/mindar-image.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/dist/mindar-image-three.prod.js"></script>
-
-    <style>
-        body { margin:0; overflow:hidden; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        #container { width:100vw; height:100vh; position:relative; background:#000; }
-        #loading { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:white; text-align:center; z-index:1000; background:rgba(0,0,0,0.8); padding:30px; border-radius:15px; }
-        .spinner { border:4px solid rgba(255,255,255,0.3); border-top:4px solid #fff; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #instructions { position:absolute; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:15px 25px; border-radius:25px; z-index:100; text-align:center; max-width:80%; font-size:14px; display:none; }
-        #status { position:absolute; top:20px; left:50%; transform:translateX(-50%); background:rgba(255,107,53,0.9); color:white; padding:10px 20px; border-radius:20px; z-index:100; font-weight:bold; display:none; }
-        .found { background:rgba(46,213,115,0.9) !important; }
-    </style>
+  <style>
+    body { margin:0; overflow:hidden; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    #container { width:100vw; height:100vh; position:relative; background:#000; }
+    #loading { position:absolute; top:50%; left:50%; transform:translate(-50%,‑50%); color:white; text-align:center; z‑index:1000; background:rgba(0,0,0,0.8); padding:30px; border-radius:15px; }
+    .spinner { border:4px solid rgba(255,255,255,0.3); border-top:4px solid #fff; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:20px auto; }
+    @keyframes spin { 0% { transform:rotate(0deg); } 100% { transform:rotate(360deg); } }
+    #instructions { position:absolute; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:15px 25px; border-radius:25px; z‑index:100; text-align:center; max‑width:80%; font-size:14px; display:none; }
+    #status { position:absolute; top:20px; left:50%; transform:translateX(-50%); background:rgba(255,107,53,0.9); color:white; padding:10px 20px; border-radius:20px; z‑index:100; font-weight:bold; display:none; }
+    .found { background:rgba(46,213,115,0.9) !important; }
+  </style>
 </head>
 <body>
-    <div id="container">
-        <div id="loading">
-            <div class="spinner"></div>
-            <div>Loading AR Experience...</div>
-            <small style="margin-top:10px; display:block; opacity:0.8;">Please allow camera access</small>
-        </div>
-        <div id="status">Searching for mural...</div>
-        <div id="instructions">
-            📱 Point your camera at the bear mural<br>
-            <small>Keep the entire mural visible and well-lit</small>
-        </div>
+  <div id="container">
+    <div id="loading">
+      <div class="spinner"></div>
+      <div>Loading AR Experience…</div>
+      <small style="margin-top:10px; display:block; opacity:0.8;">Please allow camera access</small>
     </div>
+    <div id="status">Searching for mural…</div>
+    <div id="instructions">
+      📱 Point your camera at the bear mural<br>
+      <small>Keep the entire mural visible and well‑lit</small>
+    </div>
+  </div>
 
-    <script>
-        let mindarThree, time=0;
-        let bear, isTracking=false;
-        const targetMindPath = './target.mind';
+  <!-- Import map for ES modules -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.module.js",
+        "mindar-image": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js",
+        "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"
+      }
+    }
+  </script>
 
-        window.onload = () => {
-            startAR();
+  <script type="module">
+    import * as THREE from 'three';
+    import { MindARThree } from 'mindar-image-three';
+
+    const targetMindPath = './target.mind'; // ensure correct path & name
+
+    let mindarThree, time = 0;
+    let bear, isTracking = false;
+
+    async function startAR() {
+      try {
+        mindarThree = new MindARThree({
+          container: document.querySelector("#container"),
+          imageTargetSrc: targetMindPath,
+          maxTrack: 1
+        });
+
+        const { renderer, scene, camera } = mindarThree;
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(1,1,1);
+        scene.add(directionalLight);
+
+        // Anchor
+        const anchor = mindarThree.addAnchor(0);
+
+        // Bear bottle model
+        bear = createBearBottle();
+        anchor.group.add(bear);
+
+        anchor.onTargetFound = () => {
+          isTracking = true;
+          const st = document.getElementById('status');
+          st.style.display = 'block';
+          st.textContent = '✓ Mural Detected!';
+          st.classList.add('found');
         };
 
-        async function startAR() {
-            try {
-                mindarThree = new window.MINDAR.IMAGE.MindARThree({
-                    container: document.querySelector("#container"),
-                    imageTargetSrc: targetMindPath,
-                    maxTrack: 1
-                });
+        anchor.onTargetLost = () => {
+          isTracking = false;
+          const st = document.getElementById('status');
+          st.textContent = 'Searching for mural…';
+          st.classList.remove('found');
+        };
 
-                const { renderer, scene, camera } = mindarThree;
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('instructions').style.display = 'block';
+        document.getElementById('status').style.display = 'block';
 
-                // Lights
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-                scene.add(ambientLight);
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-                directionalLight.position.set(1,1,1);
-                scene.add(directionalLight);
+        await mindarThree.start();
 
-                // Anchor
-                const anchor = mindarThree.addAnchor(0);
+        renderer.setAnimationLoop(() => {
+          time += 0.01;
+          if (bear && isTracking) animateBear();
+          renderer.render(scene, camera);
+        });
 
-                // Bear bottle model
-                bear = createBearBottle();
-                anchor.group.add(bear);
+      } catch (error) {
+        console.error('AR initialization error:', error);
+        document.getElementById('loading').innerHTML = `
+          <div style="color:#ff6b6b;">
+            <h3>⚠️ Error Loading AR</h3>
+            <p style="font-size:14px; margin-top:10px;">${error.message}</p>
+            <p style="font-size:12px; margin-top:15px; opacity:0.8;">
+              Common fixes:<br>
+              • Make sure target.mind is in the root folder<br>
+              • Use HTTPS (camera access required)<br>
+              • Allow camera permissions<br>
+              • Try a different browser
+            </p>
+          </div>
+        `;
+      }
+    }
 
-                anchor.onTargetFound = () => {
-                    isTracking = true;
-                    document.getElementById('status').style.display='block';
-                    document.getElementById('status').textContent='✓ Mural Detected!';
-                    document.getElementById('status').classList.add('found');
-                };
+    function createBearBottle() {
+      const bearGroup = new THREE.Group();
+      const bodyMaterial = new THREE.MeshPhongMaterial({
+        color: 0xffa500,
+        transparent: true,
+        opacity: 0.85,
+        shininess: 100
+      });
 
-                anchor.onTargetLost = () => {
-                    isTracking = false;
-                    document.getElementById('status').textContent='Searching for mural...';
-                    document.getElementById('status').classList.remove('found');
-                };
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.45,1.2,32), bodyMaterial);
+      body.position.y = -0.2;
+      bearGroup.add(body);
 
-                document.getElementById('loading').style.display='none';
-                document.getElementById('instructions').style.display='block';
-                document.getElementById('status').style.display='block';
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.35,32,32), bodyMaterial);
+      head.position.y = 0.6;
+      bearGroup.add(head);
 
-                await mindarThree.start();
+      const earGeom = new THREE.SphereGeometry(0.15,16,16);
+      const leftEar = new THREE.Mesh(earGeom, bodyMaterial); leftEar.position.set(-0.25,0.85,0); bearGroup.add(leftEar);
+      const rightEar = new THREE.Mesh(earGeom, bodyMaterial); rightEar.position.set(0.25,0.85,0); bearGroup.add(rightEar);
 
-                renderer.setAnimationLoop(() => {
-                    time += 0.01;
-                    if(bear && isTracking) animateBear();
-                    renderer.render(scene,camera);
-                });
+      const eyeMat = new THREE.MeshPhongMaterial({ color:0x000000 });
+      const eyeGeom = new THREE.SphereGeometry(0.05,16,16);
+      const leftEye = new THREE.Mesh(eyeGeom, eyeMat); leftEye.position.set(-0.15,0.65,0.3); bearGroup.add(leftEye);
+      const rightEye = new THREE.Mesh(eyeGeom, eyeMat); rightEye.position.set(0.15,0.65,0.3); bearGroup.add(rightEye);
 
-            } catch (err) {
-                console.error("AR init error:", err);
-                document.getElementById('loading').innerHTML=`
-                    <div style="color:#ff6b6b;">
-                        <h3>⚠️ Error Loading AR</h3>
-                        <p style="font-size:14px; margin-top:10px;">${err.message}</p>
-                        <p style="font-size:12px; margin-top:15px; opacity:0.8;">
-                        Common fixes:<br>
-                        • target.mind in root folder<br>
-                        • Use HTTPS<br>
-                        • Allow camera permissions<br>
-                        • Try a different browser
-                        </p>
-                    </div>`;
-            }
+      const nose = new THREE.Mesh(new THREE.SphereGeometry(0.08,16,16), eyeMat);
+      nose.position.set(0,0.55,0.32);
+      bearGroup.add(nose);
+
+      bearGroup.position.set(0,0,0);
+      bearGroup.scale.set(1,1,1);
+      return bearGroup;
+    }
+
+    function animateBear() {
+      if (!bear) return;
+      bear.rotation.y = Math.sin(time * 0.5) * 0.2;
+      bear.position.y = Math.sin(time * 2) * 0.05;
+      const hue = 30 + Math.sin(time) * 30;
+      const sat = 70 + Math.sin(time * 0.5) * 20;
+      const color = new THREE.Color(`hsl(${hue},${sat}%,50%)`);
+      bear.children.forEach((child,i) => {
+        if (child.material?.color && i < 5) {
+          child.material.color.copy(color);
         }
+      });
+      const scale = 1 + Math.sin(time * 1.5) * 0.05;
+      bear.scale.set(scale, scale, scale);
+    }
 
-        function createBearBottle() {
-            const bearGroup = new THREE.Group();
-            const bodyMaterial = new THREE.MeshPhongMaterial({ color:0xffa500, transparent:true, opacity:0.85, shininess:100 });
+    // Start AR
+    startAR();
 
-            // Body
-            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.45,1.2,32), bodyMaterial);
-            body.position.y=-0.2;
-            bearGroup.add(body);
-
-            // Head
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.35,32,32), bodyMaterial);
-            head.position.y=0.6;
-            bearGroup.add(head);
-
-            // Ears
-            const earGeom = new THREE.SphereGeometry(0.15,16,16);
-            const leftEar = new THREE.Mesh(earGeom, bodyMaterial);
-            leftEar.position.set(-0.25,0.85,0); bearGroup.add(leftEar);
-            const rightEar = new THREE.Mesh(earGeom, bodyMaterial);
-            rightEar.position.set(0.25,0.85,0); bearGroup.add(rightEar);
-
-            // Eyes
-            const eyeMat = new THREE.MeshPhongMaterial({ color:0x000000 });
-            const eyeGeom = new THREE.SphereGeometry(0.05,16,16);
-            const leftEye = new THREE.Mesh(eyeGeom, eyeMat); leftEye.position.set(-0.15,0.65,0.3); bearGroup.add(leftEye);
-            const rightEye = new THREE.Mesh(eyeGeom, eyeMat); rightEye.position.set(0.15,0.65,0.3); bearGroup.add(rightEye);
-
-            // Nose
-            const nose = new THREE.Mesh(new THREE.SphereGeometry(0.08,16,16), eyeMat);
-            nose.position.set(0,0.55,0.32); bearGroup.add(nose);
-
-            bearGroup.position.set(0,0,0);
-            bearGroup.scale.set(1,1,1);
-            return bearGroup;
-        }
-
-        function animateBear() {
-            if(!bear) return;
-            // Rotation
-            bear.rotation.y = Math.sin(time*0.5)*0.2;
-            // Floating
-            bear.position.y = Math.sin(time*2)*0.05;
-            // Color change
-            const hue = 30 + Math.sin(time)*30;
-            const sat = 70 + Math.sin(time*0.5)*20;
-            const color = new THREE.Color(`hsl(${hue},${sat}%,50%)`);
-            bear.children.forEach((child,i)=>{ if(child.material?.color && i<5) child.material.color.copy(color); });
-            // Breathing
-            const scale = 1 + Math.sin(time*1.5)*0.05;
-            bear.scale.set(scale,scale,scale);
-        }
-
-        // Cleanup
-        window.addEventListener('beforeunload', () => { if(mindarThree) mindarThree.stop(); });
-    </script>
+    // Cleanup
+    window.addEventListener('beforeunload', () => {
+      if (mindarThree) mindarThree.stop();
+    });
+  </script>
 </body>
 </html>
