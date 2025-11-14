@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AR Mural - Bear Honey Bottle</title>
+    <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/dist/mindar-image.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/dist/mindar-image-three.prod.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: #000;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            text-align: center;
+            z-index: 1000;
+            background: rgba(0,0,0,0.8);
+            padding: 30px;
+            border-radius: 15px;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 25px;
+            z-index: 100;
+            text-align: center;
+            max-width: 80%;
+            font-size: 14px;
+        }
+        
+        #status {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,107,53,0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            z-index: 100;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .found {
+            background: rgba(46,213,115,0.9) !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="loading">
+            <div class="spinner"></div>
+            <div>Loading AR Experience...</div>
+            <small style="margin-top: 10px; display: block; opacity: 0.8;">Please allow camera access</small>
+        </div>
+        
+        <div id="status">Searching for mural...</div>
+        
+        <div id="instructions" style="display: none;">
+            📱 Point your camera at the bear mural<br>
+            <small>Keep the entire mural visible and well-lit</small>
+        </div>
+    </div>
+
+    <script>
+        let mindarThree, time = 0;
+        let bear, isTracking = false;
+        
+        // IMPORTANT: Replace this path with your actual target.mind file location
+        // If hosting on GitHub Pages: './target.mind'
+        // If testing locally, you'll need a local server
+        const targetMindPath = './target.mind';
+        
+        async function startAR() {
+            try {
+                // Initialize MindAR
+                mindarThree = new window.MINDAR.IMAGE.MindARThree({
+                    container: document.querySelector("#container"),
+                    imageTargetSrc: targetMindPath, // Your target.mind file
+                    maxTrack: 1, // Track 1 image at a time
+                    filterMinCF: 0.0001,
+                    filterBeta: 0.001,
+                    warmupTolerance: 5,
+                    missTolerance: 5
+                });
+
+                const {renderer, scene, camera} = mindarThree;
+                
+                // Add lighting
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(1, 1, 1);
+                scene.add(directionalLight);
+
+                // Create anchor (this is where your 3D content will attach to the tracked image)
+                const anchor = mindarThree.addAnchor(0); // 0 = first target in your .mind file
+                
+                // Create the bear bottle 3D model
+                bear = createBearBottle();
+                anchor.group.add(bear);
+
+                // Track when image is found/lost
+                anchor.onTargetFound = () => {
+                    console.log("Target found!");
+                    isTracking = true;
+                    document.getElementById('status').style.display = 'block';
+                    document.getElementById('status').textContent = '✓ Mural Detected!';
+                    document.getElementById('status').classList.add('found');
+                };
+                
+                anchor.onTargetLost = () => {
+                    console.log("Target lost");
+                    isTracking = false;
+                    document.getElementById('status').textContent = 'Searching for mural...';
+                    document.getElementById('status').classList.remove('found');
+                };
+
+                // Hide loading, show instructions
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('instructions').style.display = 'block';
+                document.getElementById('status').style.display = 'block';
+
+                // Start AR
+                await mindarThree.start();
+                
+                // Start animation loop
+                renderer.setAnimationLoop(() => {
+                    time += 0.01;
+                    
+                    if (bear && isTracking) {
+                        animateBear();
+                    }
+                    
+                    renderer.render(scene, camera);
+                });
+
+            } catch (error) {
+                console.error("AR initialization error:", error);
+                document.getElementById('loading').innerHTML = `
+                    <div style="color: #ff6b6b;">
+                        <h3>⚠️ Error Loading AR</h3>
+                        <p style="font-size: 14px; margin-top: 10px;">
+                            ${error.message}
+                        </p>
+                        <p style="font-size: 12px; margin-top: 15px; opacity: 0.8;">
+                            Common fixes:<br>
+                            • Make sure target.mind is in the same folder<br>
+                            • Use HTTPS (required for camera access)<br>
+                            • Allow camera permissions<br>
+                            • Try a different browser
+                        </p>
+                    </div>
+                `;
+            }
+        }
+
+        function createBearBottle() {
+            const bearGroup = new THREE.Group();
+            
+            // Bottle body
+            const bodyGeometry = new THREE.CylinderGeometry(0.4, 0.45, 1.2, 32);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffa500,
+                transparent: true,
+                opacity: 0.85,
+                shininess: 100
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = -0.2;
+            bearGroup.add(body);
+
+            // Bear head
+            const headGeometry = new THREE.SphereGeometry(0.35, 32, 32);
+            const head = new THREE.Mesh(headGeometry, bodyMaterial);
+            head.position.y = 0.6;
+            bearGroup.add(head);
+
+            // Ears
+            const earGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+            const leftEar = new THREE.Mesh(earGeometry, bodyMaterial);
+            leftEar.position.set(-0.25, 0.85, 0);
+            bearGroup.add(leftEar);
+            
+            const rightEar = new THREE.Mesh(earGeometry, bodyMaterial);
+            rightEar.position.set(0.25, 0.85, 0);
+            bearGroup.add(rightEar);
+
+            // Eyes
+            const eyeGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+            const eyeMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+            
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-0.15, 0.65, 0.3);
+            bearGroup.add(leftEye);
+            
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(0.15, 0.65, 0.3);
+            bearGroup.add(rightEye);
+
+            // Nose
+            const noseGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+            const nose = new THREE.Mesh(noseGeometry, eyeMaterial);
+            nose.position.set(0, 0.55, 0.32);
+            bearGroup.add(nose);
+
+            // Position and scale to fit nicely on the mural
+            bearGroup.position.set(0, 0, 0);
+            bearGroup.scale.set(1, 1, 1);
+            
+            return bearGroup;
+        }
+
+        function animateBear() {
+            if (!bear) return;
+            
+            // Gentle rotation
+            bear.rotation.y = Math.sin(time * 0.5) * 0.2;
+            
+            // Subtle floating
+            bear.position.y = Math.sin(time * 2) * 0.05;
+            
+            // Color cycling through warm honey colors
+            const hue = 30 + Math.sin(time) * 30; // Oscillate between orange and yellow
+            const saturation = 70 + Math.sin(time * 0.5) * 20;
+            const color = new THREE.Color(`hsl(${hue}, ${saturation}%, 50%)`);
+            
+            // Apply color to body parts (first 5 meshes are the colored parts)
+            bear.children.forEach((child, index) => {
+                if (child.material && child.material.color && index < 5) {
+                    child.material.color.copy(color);
+                }
+            });
+            
+            // Subtle breathing/pulsing effect
+            const scale = 1 + Math.sin(time * 1.5) * 0.05;
+            bear.scale.set(scale, scale, scale);
+        }
+
+        // Start when page loads
+        window.addEventListener('load', () => {
+            startAR();
+        });
+
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            if (mindarThree) {
+                mindarThree.stop();
+            }
+        });
+    </script>
+</body>
+</html>
